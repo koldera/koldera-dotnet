@@ -56,6 +56,8 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
     {
     }
 
+    internal HttpClient StorageHttp => _storageHttp;
+
     /// <inheritdoc/>
     public IUploads Uploads { get; }
 

@@ -24,6 +24,8 @@ Initial release of `Koldera.Sdk`, for koldera-core 0.1.
 - Artifact downloads verify size and SHA-256 before returning or writing a byte (`DownloadToFileAsync` writes a
   temporary file and moves it into place without overwriting).
 - Signed upload and download addresses use a separate SDK-owned client with its own `StorageTimeout`; the caller's
-  `HttpClient` is never modified and never sees them.
+  `HttpClient` is never modified and never sees them. With `AddKoldera` all clients of a service provider share one
+  storage client.
+- The exception class follows the HTTP status; the problem `code` of the body is kept whenever it is a string.
 - Apache-2.0 licence; CI with contract, licence, secret and documentation-example checks; a release workflow with NuGet
   trusted publishing.

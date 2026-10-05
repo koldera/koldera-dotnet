@@ -45,6 +45,57 @@ public sealed class DependencyInjectionTests
         Assert.Equal(TimeSpan.FromSeconds(30), provider.GetRequiredService<IOptions<KolderaClientOptions>>().Value.Timeout);
     }
 
+    private static ServiceCollection Registered(HttpMessageHandler? storage = null)
+    {
+        var services = new ServiceCollection();
+        if (storage is not null)
+        {
+            services.AddSingleton(new SharedStorageClient(storage));
+        }
+
+        services.AddKoldera(options =>
+        {
+            options.BaseUrl = new Uri("https://koldera.example.com/");
+            options.Token = "di-token";
+        });
+        return services;
+    }
+
+    [Fact]
+    public async Task EveryResolutionSharesOneStorageClientThatOutlivesTheClients()
+    {
+        await using var provider = Registered().BuildServiceProvider();
+        KolderaClient first;
+        using (var scope = provider.CreateScope())
+        {
+            first = (KolderaClient)scope.ServiceProvider.GetRequiredService<IKolderaClient>();
+        }
+
+        using var other = provider.CreateScope();
+        var second = (KolderaClient)other.ServiceProvider.GetRequiredService<IKolderaClient>();
+        var shared = provider.GetRequiredService<SharedStorageClient>().Http;
+
+        Assert.NotSame(first, second);
+        Assert.Same(shared, first.StorageHttp);
+        Assert.Same(shared, second.StorageHttp);
+        first.Dispose();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "http://127.0.0.1:1/");
+        await Assert.ThrowsAsync<HttpRequestException>(() => shared.SendAsync(request));
+    }
+
+    [Fact]
+    public async Task StorageCallsOfADiClientCarryNoAuthorizationHeader()
+    {
+        var bytes = new byte[] { 1, 2, 3 };
+        var storage = new StubHandler((_, _) => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
+        await using var provider = Registered(storage).BuildServiceProvider();
+        var client = provider.GetRequiredService<IKolderaClient>();
+        var artifact = new Artifact { Kind = "original", DownloadUrl = "https://storage.example.com/d", SizeBytes = 3, Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant() };
+
+        Assert.Equal(bytes, await client.Artifacts.DownloadAsync(artifact));
+        Assert.Null(storage.Seen[0].Request.Headers.Authorization);
+    }
+
     [Fact]
     public void ARegisteredClientWithoutConfigurationFailsOnFirstUseWithAClearError()
     {
