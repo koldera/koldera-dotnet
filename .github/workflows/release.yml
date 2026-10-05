@@ -93,9 +93,9 @@ jobs:
       - name: Push the package and the symbols (a version that is already on nuget.org is skipped)
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        # Pushing the .nupkg also uploads the .snupkg next to it.
         run: |
           dotnet nuget push "artifacts/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-          dotnet nuget push "artifacts/*.snupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
   github-release:
     needs: publish
