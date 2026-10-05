@@ -60,7 +60,7 @@ public sealed class ContractReplayTests
     {
         var f = GoldenHandler.Get(name);
         e.Handler.Expect(name);
-        var transport = new Transport(e.Http, new Uri(GoldenHandler.BaseUrl), GoldenHandler.ServerToken, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(10), "test", null);
+        var transport = new Transport(e.Http, e.Http, new Uri(GoldenHandler.BaseUrl), GoldenHandler.ServerToken, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(10), "test", null);
         await transport.CallAsync(HttpMethod.Post, f.Request.Path, KolderaJsonContext.Default.UploadTicket, new CallOptions { Body = f.Request.Body!.ToJsonString(), IdempotencyKey = key }, CancellationToken.None);
     }
 

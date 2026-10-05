@@ -33,7 +33,7 @@ using KolderaValidation = Koldera.ValidationException;
 
 ## Notes
 
-- Signed upload and download addresses never receive an `Authorization` header, even when your `HttpClient` has a default one.
+- Signed upload and download addresses are fetched with a separate client owned by the SDK, so they never receive an `Authorization` header or your handlers; your `HttpClient` is never modified.
 - API calls use `Timeout` (default 30 s); signed uploads and downloads use `StorageTimeout` (default 10 minutes).
 - A package icon is planned for when a brand asset exists; the package has none yet.
 
