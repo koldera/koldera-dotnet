@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Koldera.Sdk/Koldera.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Koldera.Sdk.Tests/Koldera.Sdk.Tests.csproj" />
+  </Folder>
+</Solution>
