@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Koldera.Sdk.Tests/Koldera.Sdk.Tests.csproj" />
+    <Project Path="tests/Koldera.Sdk.Docs/Koldera.Sdk.Docs.csproj" />
   </Folder>
 </Solution>
