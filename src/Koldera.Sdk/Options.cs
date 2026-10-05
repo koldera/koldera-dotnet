@@ -18,6 +18,8 @@ public sealed class KolderaClientOptions
     /// <summary>Timeout of a signed upload or download (default 10 minutes), separate from the API <see cref="Timeout"/>.</summary>
     public TimeSpan StorageTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
+    internal HttpClient? StorageHttpClient { get; set; }
+
     internal Func<TimeSpan, CancellationToken, Task>? DelayAsync { get; set; }
 
     /// <summary>Never prints the token.</summary>

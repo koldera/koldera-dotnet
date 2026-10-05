@@ -16,6 +16,7 @@ public sealed class HardeningTests
     private static KolderaClient ClientOn(HttpClient http, Action<KolderaClientOptions>? tweak = null)
     {
         var options = new KolderaClientOptions { BaseUrl = new Uri("http://koldera.test"), Token = "t" };
+        options.StorageHttpClient = http;
         tweak?.Invoke(options);
         return new KolderaClient(options, http);
     }
@@ -30,11 +31,11 @@ public sealed class HardeningTests
     // ---- HttpClient timeout ------------------------------------------------------------------------
 
     [Fact]
-    public void AFreshSuppliedHttpClientGetsAnInfiniteTimeout()
+    public void ASuppliedHttpClientKeepsItsTimeout()
     {
         using var http = new HttpClient(new StubHandler((_, _) => StubHandler.Json(HttpStatusCode.OK, Info))) { Timeout = TimeSpan.FromSeconds(5) };
         using var client = ClientOn(http);
-        Assert.Equal(Timeout.InfiniteTimeSpan, http.Timeout);
+        Assert.Equal(TimeSpan.FromSeconds(5), http.Timeout);
     }
 
     [Fact]
@@ -147,7 +148,7 @@ public sealed class HardeningTests
             for (var i = 0; i < 2; i++)
             {
                 var context = await listener.GetContextAsync();
-                seen.Add((context.Request.HttpMethod, context.Request.Headers["Authorization"]));
+                seen.Add((context.Request.HttpMethod, context.Request.Headers.AllKeys.Contains("Authorization", StringComparer.OrdinalIgnoreCase) ? "present" : null));
                 if (context.Request.HttpMethod == "GET")
                 {
                     context.Response.OutputStream.Write([1, 2, 3]);
@@ -159,15 +160,15 @@ public sealed class HardeningTests
         });
         var origin = $"http://127.0.0.1:{port}";
         var tickets = new Storage((request, _) => Task.FromResult(StubHandler.Json(HttpStatusCode.Created, Ticket.Replace("http://koldera.test", origin, StringComparison.Ordinal))));
-        using var http = new HttpClient(new SplitHandler(tickets, origin));
+        using var http = new HttpClient(tickets);
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "callers-own-secret");
-        using var client = ClientOn(http);
+        using var client = new KolderaClient(new KolderaClientOptions { BaseUrl = new Uri("http://koldera.test"), Token = "t" }, http);
         await client.Uploads.UploadAsync(Env.Stream([1, 2, 3]), UploadContentTypes.Pdf, "a.pdf");
         var artifact = new Artifact { Kind = "original", DownloadUrl = origin + "/d", SizeBytes = 3, Sha256 = Convert.ToHexString(SHA256.HashData([1, 2, 3])).ToLowerInvariant() };
         await client.Artifacts.DownloadAsync(artifact);
         await serving;
         Assert.Equal(["PUT", "GET"], seen.Select(s => s.Method));
-        Assert.All(seen, s => Assert.True(string.IsNullOrEmpty(s.Authorization), $"{s.Method} carried Authorization: {s.Authorization}"));
+        Assert.All(seen, s => Assert.True(s.Authorization is null, $"{s.Method} carried an Authorization header"));
     }
 
     [Fact]
@@ -190,19 +191,27 @@ public sealed class HardeningTests
         return port;
     }
 
-    /// <summary>Ticket requests go to the scripted handler, everything aimed at the origin goes to the network.</summary>
-    private sealed class SplitHandler(HttpMessageHandler scripted, string origin) : DelegatingHandler(new HttpClientHandler())
+    [Fact]
+    public async Task DownloadToFileRefusesAMissingDirectoryEarly()
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        var (env, artifact, _) = Download();
+        using (env)
         {
-            if (request.Method == HttpMethod.Post)
-            {
-                return new HttpMessageInvoker(scripted).SendAsync(request, cancellationToken);
-            }
-
-            Assert.StartsWith(origin, request.RequestUri!.ToString(), StringComparison.Ordinal);
-            return base.SendAsync(request, cancellationToken);
+            var target = Path.Combine(Path.GetTempPath(), "koldera-missing-" + Guid.NewGuid().ToString("N"), "out.pdf");
+            await Assert.ThrowsAsync<ConfigurationException>(() => env.Client.Artifacts.DownloadToFileAsync(artifact, target));
+            Assert.Empty(env.Handler.Exchanges);
         }
+    }
+
+    [Fact]
+    public async Task StorageNeverUsesTheCallersClientOrItsHandlers()
+    {
+        var api = new StubHandler((_, _) => StubHandler.Json(HttpStatusCode.Created, Ticket));
+        using var http = new HttpClient(api);
+        using var client = new KolderaClient(new KolderaClientOptions { BaseUrl = new Uri("http://koldera.test"), Token = "t" }, http);
+        var artifact = new Artifact { Kind = "original", DownloadUrl = "http://127.0.0.1:1/d", SizeBytes = 3, Sha256 = new string('0', 64) };
+        await Assert.ThrowsAnyAsync<Exception>(() => client.Artifacts.DownloadAsync(artifact));
+        Assert.Empty(api.Seen);
     }
 
     // ---- files -------------------------------------------------------------------------------------

@@ -20,32 +20,25 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
     private readonly Transport _transport;
     private readonly HttpClient _http;
     private readonly bool _ownsHttpClient;
+    private readonly HttpClient _storageHttp;
+    private readonly bool _ownsStorageHttp;
 
     /// <summary>
     /// Creates a client. Pass your own <see cref="HttpClient"/> to control pooling and proxies; otherwise one
-    /// is owned and disposed with the client. A supplied client should have an infinite <c>Timeout</c>: the SDK
+    /// is owned and disposed with the client. A supplied client is never modified; its <c>Timeout</c> should be infinite, because the SDK
     /// applies <see cref="KolderaClientOptions.Timeout"/> itself and stretches it for calls that wait.
+    /// Signed uploads and downloads always use a separate client owned by the SDK.
     /// </summary>
     public KolderaClient(KolderaClientOptions options, HttpClient? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _ownsHttpClient = httpClient is null;
         _http = httpClient ?? new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) }) { Timeout = Timeout.InfiniteTimeSpan };
-        if (httpClient is not null)
-        {
-            try
-            {
-                httpClient.Timeout = Timeout.InfiniteTimeSpan;
-            }
-            catch (InvalidOperationException)
-            {
-                // the client was already used; its Timeout stays and is checked per call
-            }
-        }
-
         var (baseUrl, token) = Resolve(options);
         var agent = $"{SdkName}/{SdkVersion}{(string.IsNullOrWhiteSpace(options.UserAgentSuffix) ? "" : " " + options.UserAgentSuffix)}";
-        _transport = new Transport(_http, baseUrl, token, options.Timeout, options.StorageTimeout, agent, options.DelayAsync);
+        _ownsStorageHttp = options.StorageHttpClient is null;
+        _storageHttp = options.StorageHttpClient ?? new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) }) { Timeout = Timeout.InfiniteTimeSpan };
+        _transport = new Transport(_http, _storageHttp, baseUrl, token, options.Timeout, options.StorageTimeout, agent, options.DelayAsync);
         Uploads = new Uploads(_transport);
         Jobs = new Jobs(_transport);
         Pdf = new PdfJobs(_transport, Uploads, Jobs);
@@ -98,6 +91,11 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
     /// <summary>Disposes the owned <see cref="HttpClient"/>, if any.</summary>
     public void Dispose()
     {
+        if (_ownsStorageHttp)
+        {
+            _storageHttp.Dispose();
+        }
+
         if (_ownsHttpClient)
         {
             _http.Dispose();
@@ -467,8 +465,13 @@ internal sealed class Artifacts(Transport transport) : IArtifacts
     public async Task DownloadToFileAsync(Artifact artifact, string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var bytes = await DownloadAsync(artifact, cancellationToken).ConfigureAwait(false);
         var full = Path.GetFullPath(path);
+        if (!Directory.Exists(Path.GetDirectoryName(full)))
+        {
+            throw new ConfigurationException($"the directory of {path} does not exist");
+        }
+
+        var bytes = await DownloadAsync(artifact, cancellationToken).ConfigureAwait(false);
         var temporary = Path.Combine(Path.GetDirectoryName(full)!, $".{Path.GetFileName(full)}.{Guid.NewGuid():N}.tmp");
         try
         {
@@ -477,7 +480,14 @@ internal sealed class Artifacts(Transport transport) : IArtifacts
         }
         finally
         {
-            File.Delete(temporary);
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception error) when (error is DirectoryNotFoundException or FileNotFoundException)
+            {
+                // nothing left to remove
+            }
         }
     }
 }

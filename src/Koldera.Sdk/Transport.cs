@@ -29,6 +29,7 @@ internal sealed class Transport
     private static readonly TimeSpan MaxBusyDelay = TimeSpan.FromSeconds(10);
 
     private readonly HttpClient _http;
+    private readonly HttpClient _storage;
     private readonly Uri _baseUrl;
     private readonly string _token;
     private readonly TimeSpan _timeout;
@@ -36,9 +37,10 @@ internal sealed class Transport
     private readonly string _userAgent;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
 
-    public Transport(HttpClient http, Uri baseUrl, string token, TimeSpan timeout, TimeSpan storageTimeout, string userAgent, Func<TimeSpan, CancellationToken, Task>? delay)
+    public Transport(HttpClient http, HttpClient storage, Uri baseUrl, string token, TimeSpan timeout, TimeSpan storageTimeout, string userAgent, Func<TimeSpan, CancellationToken, Task>? delay)
     {
         _http = http;
+        _storage = storage;
         _baseUrl = new Uri(baseUrl.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/");
         _token = token;
         _timeout = timeout;
@@ -64,7 +66,7 @@ internal sealed class Transport
             byte[] body;
             try
             {
-                (response, body) = await SendAsync(request, timeout, path, cancellationToken).ConfigureAwait(false);
+                (response, body) = await SendAsync(_http, request, timeout, path, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception error) when (error is HttpRequestException or TimeoutException)
             {
@@ -108,9 +110,7 @@ internal sealed class Transport
     {
         using var request = new HttpRequestMessage(HttpMethod.Put, url) { Content = new ByteArrayContent(bytes) };
         request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-        WithoutCredential(request);
-        EnsureHttpClientAllows(_storageTimeout);
-        var (response, body) = await SendAsync(request, _storageTimeout, "storage", cancellationToken).ConfigureAwait(false);
+        var (response, body) = await SendAsync(_storage, request, _storageTimeout, "storage", cancellationToken).ConfigureAwait(false);
         using (response)
         {
             if (!response.IsSuccessStatusCode)
@@ -124,13 +124,11 @@ internal sealed class Transport
     public async Task<byte[]> StorageGetAsync(string url, long expectedBytes, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        WithoutCredential(request);
-        EnsureHttpClientAllows(_storageTimeout);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(_storageTimeout);
         try
         {
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutSource.Token).ConfigureAwait(false);
+            using var response = await _storage.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutSource.Token).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsByteArrayAsync(timeoutSource.Token).ConfigureAwait(false);
@@ -155,7 +153,7 @@ internal sealed class Transport
         }
         catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException(TimeoutText("the download", _storageTimeout, error, timeoutSource));
+            throw new TimeoutException(TimeoutText(_storage, "the download", _storageTimeout, error, timeoutSource));
         }
     }
 
@@ -175,9 +173,9 @@ internal sealed class Transport
         return trimmed;
     }
 
-    private string TimeoutText(string what, TimeSpan sdkTimeout, OperationCanceledException error, CancellationTokenSource source) =>
+    private static string TimeoutText(HttpClient client, string what, TimeSpan sdkTimeout, OperationCanceledException error, CancellationTokenSource source) =>
         !source.IsCancellationRequested && error.InnerException is TimeoutException
-            ? $"{what} timed out: the HttpClient.Timeout of {_http.Timeout} elapsed"
+            ? $"{what} timed out: the HttpClient.Timeout of {client.Timeout} elapsed"
             : $"{what} timed out after {sdkTimeout}";
 
     private void EnsureHttpClientAllows(TimeSpan needed)
@@ -186,15 +184,6 @@ internal sealed class Transport
         if (limit != Timeout.InfiniteTimeSpan && needed > limit)
         {
             throw new ConfigurationException($"the HttpClient has a Timeout of {limit} but this call needs {needed}; set HttpClient.Timeout to Timeout.InfiniteTimeSpan before its first use");
-        }
-    }
-
-    /// <summary>A signed URL is its own credential: a default Authorization header of the HttpClient must not reach it.</summary>
-    private void WithoutCredential(HttpRequestMessage request)
-    {
-        if (_http.DefaultRequestHeaders.Contains("Authorization"))
-        {
-            request.Headers.TryAddWithoutValidation("Authorization", string.Empty);
         }
     }
 
@@ -228,13 +217,13 @@ internal sealed class Transport
         return request;
     }
 
-    private async Task<(HttpResponseMessage Response, byte[] Body)> SendAsync(HttpRequestMessage request, TimeSpan timeout, string what, CancellationToken cancellationToken)
+    private async Task<(HttpResponseMessage Response, byte[] Body)> SendAsync(HttpClient client, HttpRequestMessage request, TimeSpan timeout, string what, CancellationToken cancellationToken)
     {
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
         try
         {
-            var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutSource.Token).ConfigureAwait(false);
+            var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutSource.Token).ConfigureAwait(false);
             try
             {
                 var body = await response.Content.ReadAsByteArrayAsync(timeoutSource.Token).ConfigureAwait(false);
@@ -248,7 +237,7 @@ internal sealed class Transport
         }
         catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException(TimeoutText($"the request to {what}", timeout, error, timeoutSource));
+            throw new TimeoutException(TimeoutText(client, $"the request to {what}", timeout, error, timeoutSource));
         }
     }
 

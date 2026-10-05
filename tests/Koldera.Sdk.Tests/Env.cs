@@ -20,6 +20,7 @@ public sealed class Env : IDisposable
                 BaseUrl = new Uri(GoldenHandler.BaseUrl),
                 Token = token,
                 Timeout = timeout ?? TimeSpan.FromSeconds(30),
+                StorageHttpClient = Http,
                 DelayAsync = (delay, ct) =>
                 {
                     Pauses.Add(delay);
