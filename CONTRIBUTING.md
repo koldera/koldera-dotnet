@@ -83,7 +83,8 @@ Describe what changed and why, list the commands you ran with their results, and
 a pull request to one concern. The Koldera team reviews it; expect questions about tests and about what a change could
 make the SDK claim. The repository is squash-merged.
 
-CI runs one job on Ubuntu and is skipped for changes that only touch Markdown or `docs/`; run `dotnet build -c Release`
+CI runs one job on Ubuntu and is skipped for changes that only touch the changelog, the community files or the issue
+and PR templates; the README and `docs/` are compiled as snippets, so they run CI. Run `dotnet build -c Release`
 yourself after editing an example. The release workflow runs the whole CI job again for the tagged commit.
 
 ## Releasing
@@ -129,9 +130,9 @@ To release:
 The trusted publishing policy is first exercised by the real publish, so the first release can fail at the login or push
 step (check the policy values in step 2 and the `NUGET_USER` secret); nothing has been uploaded in that case and the tag
 can be re-run. If trusted publishing cannot be used for the first push, fall back to a short-lived API key: create an
-API key on nuget.org scoped to the glob `Koldera.*` with push permission and a short expiry, store it as the secret
-`NUGET_API_KEY`, and run the push step by hand with `dotnet nuget push artifacts/*.nupkg --api-key <key> --source
-https://api.nuget.org/v3/index.json`; delete the key and the secret afterwards.
+API key on nuget.org scoped to the glob `Koldera.*` with push permission and a short expiry, push the packages built from
+the tag by hand with `dotnet nuget push artifacts/*.nupkg --api-key <key> --source https://api.nuget.org/v3/index.json`
+(the matching `.snupkg` is pushed with it), and delete the key afterwards. Do not store the key as a repository secret.
 
 If a step after the push fails, fix the cause and re-run the failed jobs; NuGet never accepts the same version twice, so
 never reuse a version number for different content: bump to the next patch version instead.
