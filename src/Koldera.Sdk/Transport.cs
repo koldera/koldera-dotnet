@@ -277,10 +277,10 @@ internal sealed class Transport
         try
         {
             var problem = JsonSerializer.Deserialize(body, KolderaJsonContext.Default.Problem);
-            if (problem is { Code: not null, Status: not 0 })
+            if (problem is { Code: not null })
             {
                 var errors = problem.Errors?.Where(e => e is { Path: not null, Code: not null, Message: not null }).ToList();
-                return problem with { Type = problem.Type ?? "about:blank", Title = problem.Title ?? title, Errors = errors };
+                return problem with { Type = problem.Type ?? "about:blank", Title = problem.Title ?? title, Status = status, Errors = errors };
             }
         }
         catch (JsonException)

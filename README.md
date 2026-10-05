@@ -288,7 +288,8 @@ and `HtmlToPdfJobOptions` add `FileName`, `ExplicitLanguage` and `ExplicitTitle`
 
 - API calls use `Timeout`. A call with `Wait = N` is allowed `N + 10` seconds.
 - Signed uploads and downloads use `StorageTimeout` and a separate client owned by the SDK, so they never receive an
-  `Authorization` header or your handlers. Your `HttpClient` is never modified.
+  `Authorization` header or your handlers. Your `HttpClient` is never modified. With `AddKoldera` every resolved
+  client shares one storage client, which the service provider disposes.
 - `AddKoldera` sets the typed client's `HttpClient.Timeout` to infinite, so the SDK's timeouts are the only ones.
 - If you pass your own `HttpClient` to the constructor, give it an infinite `Timeout` as well. Otherwise a call that
   needs longer than the client's own timeout (100 s by default) throws `ConfigurationException` before anything is
