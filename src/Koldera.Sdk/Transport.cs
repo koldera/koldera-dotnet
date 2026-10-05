@@ -32,15 +32,17 @@ internal sealed class Transport
     private readonly Uri _baseUrl;
     private readonly string _token;
     private readonly TimeSpan _timeout;
+    private readonly TimeSpan _storageTimeout;
     private readonly string _userAgent;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
 
-    public Transport(HttpClient http, Uri baseUrl, string token, TimeSpan timeout, string userAgent, Func<TimeSpan, CancellationToken, Task>? delay)
+    public Transport(HttpClient http, Uri baseUrl, string token, TimeSpan timeout, TimeSpan storageTimeout, string userAgent, Func<TimeSpan, CancellationToken, Task>? delay)
     {
         _http = http;
         _baseUrl = new Uri(baseUrl.GetLeftPart(UriPartial.Path).TrimEnd('/') + "/");
         _token = token;
         _timeout = timeout;
+        _storageTimeout = storageTimeout;
         _userAgent = userAgent;
         _delay = delay ?? Task.Delay;
     }
@@ -50,6 +52,7 @@ internal sealed class Transport
     public async Task<CallResult<T>> CallAsync<T>(HttpMethod method, string path, JsonTypeInfo<T> typeInfo, CallOptions options, CancellationToken cancellationToken)
     {
         var timeout = options.Wait is { } wait && wait > 0 ? Max(_timeout, TimeSpan.FromSeconds(wait + 10)) : _timeout;
+        EnsureHttpClientAllows(timeout);
         // A repeated creation carries the same key, so the server replays its answer instead of creating a second job.
         var safeToRepeat = method == HttpMethod.Get || options.IdempotencyKey is not null;
         var busy = 0;
@@ -105,7 +108,9 @@ internal sealed class Transport
     {
         using var request = new HttpRequestMessage(HttpMethod.Put, url) { Content = new ByteArrayContent(bytes) };
         request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-        var (response, body) = await SendAsync(request, _timeout, "storage", cancellationToken).ConfigureAwait(false);
+        WithoutCredential(request);
+        EnsureHttpClientAllows(_storageTimeout);
+        var (response, body) = await SendAsync(request, _storageTimeout, "storage", cancellationToken).ConfigureAwait(false);
         using (response)
         {
             if (!response.IsSuccessStatusCode)
@@ -119,8 +124,10 @@ internal sealed class Transport
     public async Task<byte[]> StorageGetAsync(string url, long expectedBytes, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        WithoutCredential(request);
+        EnsureHttpClientAllows(_storageTimeout);
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutSource.CancelAfter(_timeout);
+        timeoutSource.CancelAfter(_storageTimeout);
         try
         {
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeoutSource.Token).ConfigureAwait(false);
@@ -146,9 +153,9 @@ internal sealed class Transport
 
             return buffer.ToArray();
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException($"the download timed out after {_timeout}");
+            throw new TimeoutException(TimeoutText("the download", _storageTimeout, error, timeoutSource));
         }
     }
 
@@ -166,6 +173,29 @@ internal sealed class Transport
         }
 
         return trimmed;
+    }
+
+    private string TimeoutText(string what, TimeSpan sdkTimeout, OperationCanceledException error, CancellationTokenSource source) =>
+        !source.IsCancellationRequested && error.InnerException is TimeoutException
+            ? $"{what} timed out: the HttpClient.Timeout of {_http.Timeout} elapsed"
+            : $"{what} timed out after {sdkTimeout}";
+
+    private void EnsureHttpClientAllows(TimeSpan needed)
+    {
+        var limit = _http.Timeout;
+        if (limit != Timeout.InfiniteTimeSpan && needed > limit)
+        {
+            throw new ConfigurationException($"the HttpClient has a Timeout of {limit} but this call needs {needed}; set HttpClient.Timeout to Timeout.InfiniteTimeSpan before its first use");
+        }
+    }
+
+    /// <summary>A signed URL is its own credential: a default Authorization header of the HttpClient must not reach it.</summary>
+    private void WithoutCredential(HttpRequestMessage request)
+    {
+        if (_http.DefaultRequestHeaders.Contains("Authorization"))
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", string.Empty);
+        }
     }
 
     private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
@@ -216,9 +246,9 @@ internal sealed class Transport
                 throw;
             }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new TimeoutException($"the request to {what} timed out after {timeout}");
+            throw new TimeoutException(TimeoutText($"the request to {what}", timeout, error, timeoutSource));
         }
     }
 

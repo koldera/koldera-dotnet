@@ -4,6 +4,8 @@
     <PackageId>Koldera.Sdk</PackageId>
     <Version>0.1.0</Version>
     <Authors>Koldera</Authors>
+    <Copyright>Copyright (c) 2026 makulatura78</Copyright>
+    <EnablePackageValidation>true</EnablePackageValidation>
     <Description>.NET SDK for koldera-core: PDF/UA checks and fixes, HTML and structured documents to tagged PDF, web scans.</Description>
     <PackageTags>accessibility;pdf;pdf-ua;wcag;a11y;koldera</PackageTags>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -29,6 +31,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
   </ItemGroup>

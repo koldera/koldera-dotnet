@@ -119,6 +119,12 @@ public interface IArtifacts
 
     /// <summary>Downloads into the destination, writing only after size and SHA-256 matched.</summary>
     Task DownloadAsync(Artifact artifact, Stream destination, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Downloads to a file: written to a temporary file next to the target, verified, then moved without
+    /// overwriting an existing file. The temporary file is removed on any failure.
+    /// </summary>
+    Task DownloadToFileAsync(Artifact artifact, string path, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Short-lived sessions for browser code.</summary>
