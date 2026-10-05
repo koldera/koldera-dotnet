@@ -20,4 +20,21 @@ var job = await client.Pdf.CreateJobAsync(pdf, PdfJobModes.Fix, new PdfJobOption
 Console.WriteLine($"{job.State} {job.FinalValidation?.Status}");
 ```
 
+## Name collisions
+
+The exception types keep the names of the API error classes, so `ValidationException` and
+`AuthenticationException` can collide with `System.ComponentModel.DataAnnotations` and
+`System.Security.Authentication` when both namespaces are imported. Use an alias:
+
+```csharp
+using KolderaAuthentication = Koldera.AuthenticationException;
+using KolderaValidation = Koldera.ValidationException;
+```
+
+## Notes
+
+- Signed upload and download addresses never receive an `Authorization` header, even when your `HttpClient` has a default one.
+- API calls use `Timeout` (default 30 s); signed uploads and downloads use `StorageTimeout` (default 10 minutes).
+- A package icon is planned for when a brand asset exists; the package has none yet.
+
 Full documentation follows with the first release.

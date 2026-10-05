@@ -57,7 +57,7 @@ public sealed class DependencyInjectionTests
             var services = new ServiceCollection();
             services.AddKoldera(_ => { });
             using var provider = services.BuildServiceProvider();
-            Assert.Throws<ConfigurationException>(() => provider.GetRequiredService<IKolderaClient>());
+            Assert.Throws<OptionsValidationException>(() => provider.GetRequiredService<IKolderaClient>());
         }
         finally
         {

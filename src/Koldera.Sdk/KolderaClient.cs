@@ -15,7 +15,7 @@ namespace Koldera;
 public sealed class KolderaClient : IKolderaClient, IDisposable
 {
     internal const string SdkName = "koldera-sdk-dotnet";
-    internal const string SdkVersion = "0.1.0";
+    internal static readonly string SdkVersion = ReadVersion();
 
     private readonly Transport _transport;
     private readonly HttpClient _http;
@@ -30,10 +30,22 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         _ownsHttpClient = httpClient is null;
-        _http = httpClient ?? new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        _http = httpClient ?? new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) }) { Timeout = Timeout.InfiniteTimeSpan };
+        if (httpClient is not null)
+        {
+            try
+            {
+                httpClient.Timeout = Timeout.InfiniteTimeSpan;
+            }
+            catch (InvalidOperationException)
+            {
+                // the client was already used; its Timeout stays and is checked per call
+            }
+        }
+
         var (baseUrl, token) = Resolve(options);
         var agent = $"{SdkName}/{SdkVersion}{(string.IsNullOrWhiteSpace(options.UserAgentSuffix) ? "" : " " + options.UserAgentSuffix)}";
-        _transport = new Transport(_http, baseUrl, token, options.Timeout, agent, options.DelayAsync);
+        _transport = new Transport(_http, baseUrl, token, options.Timeout, options.StorageTimeout, agent, options.DelayAsync);
         Uploads = new Uploads(_transport);
         Jobs = new Jobs(_transport);
         Pdf = new PdfJobs(_transport, Uploads, Jobs);
@@ -92,7 +104,17 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
         }
     }
 
-    private static (Uri BaseUrl, string Token) Resolve(KolderaClientOptions options)
+    private static string ReadVersion()
+    {
+        var assembly = typeof(KolderaClient).Assembly;
+        var text = assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        var plus = text.IndexOf('+', StringComparison.Ordinal);
+        return plus >= 0 ? text[..plus] : text;
+    }
+
+    internal static (Uri BaseUrl, string Token) Resolve(KolderaClientOptions options)
     {
         var token = options.Token ?? Environment.GetEnvironmentVariable("KOLDERA_TOKEN") ?? "";
         if (string.IsNullOrWhiteSpace(token))
@@ -100,7 +122,13 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
             throw new ConfigurationException("Token is required: set KolderaClientOptions.Token or KOLDERA_TOKEN");
         }
 
-        var baseUrl = options.BaseUrl ?? (Uri.TryCreate(Environment.GetEnvironmentVariable("KOLDERA_URL"), UriKind.Absolute, out var fromEnv) ? fromEnv : null);
+        var fromVariable = Environment.GetEnvironmentVariable("KOLDERA_URL");
+        if (options.BaseUrl is null && !string.IsNullOrWhiteSpace(fromVariable) && !Uri.TryCreate(fromVariable, UriKind.Absolute, out _))
+        {
+            throw new ConfigurationException("KOLDERA_URL is not an absolute URL");
+        }
+
+        var baseUrl = options.BaseUrl ?? (Uri.TryCreate(fromVariable, UriKind.Absolute, out var fromEnv) ? fromEnv : null);
         if (baseUrl is null)
         {
             throw new ConfigurationException("BaseUrl is required: set KolderaClientOptions.BaseUrl or KOLDERA_URL");
@@ -109,6 +137,11 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
         if (!baseUrl.IsAbsoluteUri || (baseUrl.Scheme != Uri.UriSchemeHttps && baseUrl.Scheme != Uri.UriSchemeHttp))
         {
             throw new ConfigurationException("BaseUrl must be an absolute http(s) URL");
+        }
+
+        if (options.Timeout <= TimeSpan.Zero || options.StorageTimeout <= TimeSpan.Zero)
+        {
+            throw new ConfigurationException("Timeout and StorageTimeout must be positive");
         }
 
         return (baseUrl, token);
@@ -429,6 +462,23 @@ internal sealed class Artifacts(Transport transport) : IArtifacts
         ArgumentNullException.ThrowIfNull(destination);
         var bytes = await DownloadAsync(artifact, cancellationToken).ConfigureAwait(false);
         await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task DownloadToFileAsync(Artifact artifact, string path, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        var bytes = await DownloadAsync(artifact, cancellationToken).ConfigureAwait(false);
+        var full = Path.GetFullPath(path);
+        var temporary = Path.Combine(Path.GetDirectoryName(full)!, $".{Path.GetFileName(full)}.{Guid.NewGuid():N}.tmp");
+        try
+        {
+            await File.WriteAllBytesAsync(temporary, bytes, cancellationToken).ConfigureAwait(false);
+            File.Move(temporary, full, overwrite: false);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
     }
 }
 
