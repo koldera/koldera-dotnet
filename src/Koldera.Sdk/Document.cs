@@ -172,10 +172,7 @@ public sealed record DocumentTheme
     public string? Accent { get; init; }
 }
 
-/// <summary>
-/// The structured document of POST /v1/documents/jobs. Structure is declared, never inferred: headings,
-/// table headers, image descriptions and languages are stated by the author.
-/// </summary>
+/// <summary>The structured document of POST /v1/documents/jobs. Structure is declared by the author, never inferred.</summary>
 /// <param name="Title">Document title; at least one non-whitespace character.</param>
 /// <param name="Language">Primary language as a BCP 47 tag, for example en or uk.</param>
 /// <param name="Body">The content in reading order.</param>
