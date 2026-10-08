@@ -182,6 +182,65 @@ public sealed class HardeningTests
         Assert.Equal("t", stub.Seen[0].Request.Headers.Authorization!.Parameter);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SdkOwnedStorageClientsRefuseRedirects(bool sharedByDependencyInjection)
+    {
+        var port = FreePort();
+        using var listener = new HttpListener();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        var paths = new List<string>();
+        var serving = Task.Run(async () =>
+        {
+            while (true)
+            {
+                HttpListenerContext context;
+                try
+                {
+                    context = await listener.GetContextAsync();
+                }
+                catch (Exception) when (!listener.IsListening)
+                {
+                    return;
+                }
+
+                lock (paths)
+                {
+                    paths.Add(context.Request.Url!.AbsolutePath);
+                }
+
+                if (context.Request.Url!.AbsolutePath == "/d")
+                {
+                    context.Response.StatusCode = 302;
+                    context.Response.RedirectLocation = $"http://127.0.0.1:{port}/elsewhere";
+                }
+                else
+                {
+                    context.Response.OutputStream.Write([1, 2, 3]);
+                }
+
+                context.Response.Close();
+            }
+        });
+        using var shared = new SharedStorageClient();
+        var options = new KolderaClientOptions { BaseUrl = new Uri("http://koldera.test"), Token = "t" };
+        if (sharedByDependencyInjection)
+        {
+            options.StorageHttpClient = shared.Http;
+        }
+
+        using var api = new HttpClient(new StubHandler((_, _) => StubHandler.Json(HttpStatusCode.OK, Info)));
+        using var client = new KolderaClient(options, api);
+        var artifact = new Artifact { Kind = "original", DownloadUrl = $"http://127.0.0.1:{port}/d", SizeBytes = 3, Sha256 = Convert.ToHexString(SHA256.HashData([1, 2, 3])).ToLowerInvariant() };
+        var error = await Assert.ThrowsAsync<StorageException>(() => client.Artifacts.DownloadAsync(artifact));
+        listener.Stop();
+        await serving;
+        Assert.Equal(302, error.Status);
+        Assert.Equal(["/d"], paths);
+    }
+
     private static int FreePort()
     {
         var probe = new TcpListener(IPAddress.Loopback, 0);
