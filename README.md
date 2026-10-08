@@ -1,6 +1,6 @@
 # Koldera.Sdk
 
-.NET SDK for [koldera-core](https://github.com/koldera/koldera-core), the self-hosted service that checks PDFs against
+.NET SDK for koldera-core, the commercially licensed, self-hosted service that checks PDFs against
 the PDF/UA-1 machine rules, writes fixed copies, renders HTML and structured documents to tagged PDF, and scans web
 pages. `KolderaClient` is async, nullable-annotated, trimming and AOT compatible, and every resource is an interface
 (`IKolderaClient`, `IJobs`, `IPdfJobs`, ...) so you can fake it in your own tests. It targets .NET 8 and .NET 10.
@@ -201,7 +201,7 @@ async Task InvoiceAsync(IKolderaClient client)
 
 A rejected document throws `ValidationException` whose `Errors` list `Path`, `Code` and `Message` for each problem. For
 features the typed model does not cover yet, pass a `JsonObject` to `CreateJobAsync`. The block rules are in
-[koldera-core's documents guide](https://github.com/koldera/koldera-core/blob/main/docs/documents.md).
+koldera-core's documents guide.
 
 ## Errors
 
@@ -318,22 +318,15 @@ using var client = new KolderaClient(
 
 The vendored API description in [`contracts/`](contracts) records the koldera-core commit it was taken from
 (`contracts/CORE_VERSION`), and CI checks that the copy matches. Run koldera-core as described in its
-[README](https://github.com/koldera/koldera-core#readme) and
-[deployment guide](https://github.com/koldera/koldera-core/blob/main/docs/deployment.md). A package icon is planned for
+README and deployment guide. A package icon is planned for
 when a brand asset exists; the package has none yet.
 
 ## Links
 
 - [Guide](docs/guide.md), [contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [changelog](CHANGELOG.md).
-- [koldera-core](https://github.com/koldera/koldera-core): the service, API reference and deployment guide.
 
 ## Licence
 
 This SDK is licensed under the [Apache License 2.0](LICENSE).
 
-koldera-core itself is licensed under the AGPL-3.0. Talking to it over HTTP with this SDK does not make your code
-AGPL: the SDK is a separate work under Apache-2.0, and a network client of an AGPL server is not a derivative of it.
-If you modify koldera-core and offer the modified version as a service, the AGPL applies to those modifications; see
-koldera-core's licence pages for details and for the commercial option. This is our reading of the licence, not
-legal advice; see koldera-core's [COMMERCIAL.md](https://github.com/koldera/koldera-core/blob/main/COMMERCIAL.md) and
-[LICENSE](https://github.com/koldera/koldera-core/blob/main/LICENSE).
+koldera-core is commercially licensed, self-hosted software; this SDK is Apache-2.0 and talks to it over its HTTP API.
