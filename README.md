@@ -323,6 +323,12 @@ that the copy matches. Run koldera-core as described in its
 [deployment guide](https://github.com/koldera/koldera-core/blob/main/docs/deployment.md). A package icon is planned for
 when a brand asset exists; the package has none yet.
 
+## Examples
+
+[examples/PdfRemediationDemo](examples/PdfRemediationDemo) is a runnable console app against a koldera-core you start
+locally, with a synthetic input: analyze a PDF, write a fixed copy, download it, list what needs a person. It is not
+part of the NuGet package.
+
 ## Links
 
 - [Guide](docs/guide.md), [contributing](CONTRIBUTING.md), [security policy](SECURITY.md), [changelog](CHANGELOG.md).
