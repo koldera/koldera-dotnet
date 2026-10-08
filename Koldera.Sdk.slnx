@@ -6,4 +6,7 @@
     <Project Path="tests/Koldera.Sdk.Tests/Koldera.Sdk.Tests.csproj" />
     <Project Path="tests/Koldera.Sdk.Docs/Koldera.Sdk.Docs.csproj" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/PdfRemediationDemo/PdfRemediationDemo.csproj" />
+  </Folder>
 </Solution>
