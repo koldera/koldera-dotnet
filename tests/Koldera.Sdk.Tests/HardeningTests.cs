@@ -192,36 +192,37 @@ public sealed class HardeningTests
         listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         listener.Start();
         var paths = new List<string>();
+
+        // HttpListener.Stop closes the request queue before IsListening turns false, so a pending GetContextAsync can
+        // fail with "operation aborted" while IsListening is still true. Use our own flag, set before Stop, instead.
+        using var stopping = new CancellationTokenSource();
         var serving = Task.Run(async () =>
         {
-            while (true)
+            try
             {
-                HttpListenerContext context;
-                try
+                while (true)
                 {
-                    context = await listener.GetContextAsync();
-                }
-                catch (Exception) when (!listener.IsListening)
-                {
-                    return;
-                }
+                    var context = await listener.GetContextAsync();
+                    lock (paths)
+                    {
+                        paths.Add(context.Request.Url!.AbsolutePath);
+                    }
 
-                lock (paths)
-                {
-                    paths.Add(context.Request.Url!.AbsolutePath);
-                }
+                    if (context.Request.Url!.AbsolutePath == "/d")
+                    {
+                        context.Response.StatusCode = 302;
+                        context.Response.RedirectLocation = $"http://127.0.0.1:{port}/elsewhere";
+                    }
+                    else
+                    {
+                        context.Response.OutputStream.Write([1, 2, 3]);
+                    }
 
-                if (context.Request.Url!.AbsolutePath == "/d")
-                {
-                    context.Response.StatusCode = 302;
-                    context.Response.RedirectLocation = $"http://127.0.0.1:{port}/elsewhere";
+                    context.Response.Close();
                 }
-                else
-                {
-                    context.Response.OutputStream.Write([1, 2, 3]);
-                }
-
-                context.Response.Close();
+            }
+            catch (Exception) when (stopping.IsCancellationRequested)
+            {
             }
         });
         using var shared = new SharedStorageClient();
@@ -235,6 +236,7 @@ public sealed class HardeningTests
         using var client = new KolderaClient(options, api);
         var artifact = new Artifact { Kind = "original", DownloadUrl = $"http://127.0.0.1:{port}/d", SizeBytes = 3, Sha256 = Convert.ToHexString(SHA256.HashData([1, 2, 3])).ToLowerInvariant() };
         var error = await Assert.ThrowsAsync<StorageException>(() => client.Artifacts.DownloadAsync(artifact));
+        stopping.Cancel();
         listener.Stop();
         await serving;
         Assert.Equal(302, error.Status);
