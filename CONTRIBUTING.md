@@ -36,6 +36,18 @@ Dependencies are pinned in `Directory.Packages.props` and locked in `packages.lo
 `dotnet restore --force-evaluate` and commit the lock files in the same change. CI restores in locked mode and fails
 when they are out of date.
 
+### Against a real koldera-core
+
+`tests/Koldera.Sdk.Tests/LiveCoreTests.cs` runs the SDK against a running koldera-core (synthetic inputs only): a PDF analyze and fix with the fixed copy
+downloaded and its SHA-256 checked, one HTML-to-PDF job and one structured document job. It is skipped unless
+`KOLDERA_URL` and `KOLDERA_TOKEN` are both set, so CI without a server skips it:
+
+```bash
+KOLDERA_URL=http://localhost:8080 KOLDERA_TOKEN=... dotnet test -c Release --filter FullyQualifiedName~LiveCoreTests
+```
+
+How to start koldera-core locally is in [examples/PdfRemediationDemo](examples/PdfRemediationDemo/README.md).
+
 ### Documentation examples
 
 Every `csharp` block in `README.md` and `docs/*.md` is extracted and compiled by `tests/Koldera.Sdk.Docs` on each build,

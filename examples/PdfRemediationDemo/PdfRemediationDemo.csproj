@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- A runnable demonstration, never packed or published. See README.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Koldera.Sdk\Koldera.Sdk.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="synthetic-report.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
