@@ -317,9 +317,16 @@ using var client = new KolderaClient(
 | 0.1.x | 0.1.x | 8.0, 10.0 |
 
 The vendored API description in [`contracts/`](contracts) records the koldera-core commit it was taken from
-(`contracts/CORE_VERSION`), and CI checks that the copy matches. Run koldera-core as described in its
+(`contracts/CORE_VERSION`) and the sdk-contract-kit commit it was synced from (`contracts/KIT_VERSION`), and CI checks
+that the copy matches. Run koldera-core as described in its
 README and deployment guide. A package icon is planned for
 when a brand asset exists; the package has none yet.
+
+## Examples
+
+[examples/PdfRemediationDemo](examples/PdfRemediationDemo) is a runnable console app against a koldera-core you start
+locally, with a synthetic input: analyze a PDF, write a fixed copy, download it, list what needs a person. It is not
+part of the NuGet package.
 
 ## Links
 
