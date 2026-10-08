@@ -63,7 +63,9 @@ public static class ServiceCollectionExtensions
 
     private static IHttpClientBuilder Register(IServiceCollection services, Action<KolderaClientOptions> configure)
     {
+        services.TryAddSingleton<SharedStorageClient>();
         services.AddOptions<KolderaClientOptions>().Configure(configure).ValidateOnStart();
+        services.AddOptions<KolderaClientOptions>().PostConfigure<SharedStorageClient>((options, storage) => options.StorageHttpClient ??= storage.Http);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KolderaClientOptions>, KolderaOptionsValidator>());
         return services.AddHttpClient<IKolderaClient, KolderaClient>(client => client.Timeout = Timeout.InfiniteTimeSpan);
     }
