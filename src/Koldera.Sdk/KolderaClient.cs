@@ -37,7 +37,7 @@ public sealed class KolderaClient : IKolderaClient, IDisposable
         var (baseUrl, token) = Resolve(options);
         var agent = $"{SdkName}/{SdkVersion}{(string.IsNullOrWhiteSpace(options.UserAgentSuffix) ? "" : " " + options.UserAgentSuffix)}";
         _ownsStorageHttp = options.StorageHttpClient is null;
-        _storageHttp = options.StorageHttpClient ?? new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) }) { Timeout = Timeout.InfiniteTimeSpan };
+        _storageHttp = options.StorageHttpClient ?? new HttpClient(SharedStorageClient.CreateHandler()) { Timeout = Timeout.InfiniteTimeSpan };
         _transport = new Transport(_http, _storageHttp, baseUrl, token, options.Timeout, options.StorageTimeout, agent, options.DelayAsync);
         Uploads = new Uploads(_transport);
         Jobs = new Jobs(_transport);

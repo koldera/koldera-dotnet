@@ -51,9 +51,10 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          # The SDK comes from global.json: its version decides the implicit Microsoft.NET.ILLink.Tasks
+          # reference recorded in packages.lock.json, so it must match the SDK the locks were made with.
+          dotnet-version: 8.0.x
+          global-json-file: global.json
       - run: dotnet restore
       - name: Pack (deterministic, Source Link, package validation)
         run: dotnet pack src/Koldera.Sdk -c Release --no-restore -p:ContinuousIntegrationBuild=true -o artifacts
