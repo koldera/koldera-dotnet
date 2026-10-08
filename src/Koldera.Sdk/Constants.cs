@@ -164,6 +164,12 @@ public static class ValidationStatuses
 
     /// <summary>The validation was not run.</summary>
     public const string NotRun = "not_run";
+
+    /// <summary>
+    /// The only failing check is the missing PDF/UA identifier (veraPDF 5-1, still listed in the failed rules), which was
+    /// not written because declaring PDF/UA requires a human review. It is not a pass.
+    /// </summary>
+    public const string DeclarationWithheld = "declaration_withheld";
 }
 
 /// <summary>Problem codes of the API. An unknown code of a newer core is preserved as sent.</summary>
