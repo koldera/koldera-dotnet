@@ -4,9 +4,12 @@ namespace Koldera;
 internal sealed class SharedStorageClient : IDisposable
 {
     public SharedStorageClient()
-        : this(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) })
+        : this(CreateHandler())
     {
     }
+
+    /// <summary>The handler of every SDK-owned storage client. Redirects are refused: a signed URL must be answered where it points.</summary>
+    internal static SocketsHttpHandler CreateHandler() => new() { PooledConnectionLifetime = TimeSpan.FromMinutes(2), AllowAutoRedirect = false };
 
     internal SharedStorageClient(HttpMessageHandler handler) => Http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
 

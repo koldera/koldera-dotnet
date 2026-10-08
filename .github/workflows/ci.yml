@@ -34,9 +34,10 @@ jobs:
           node-version: 22
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: |
-            8.0.x
-            10.0.x
+          # The SDK comes from global.json: its version decides the implicit Microsoft.NET.ILLink.Tasks
+          # reference recorded in packages.lock.json. 8.0.x adds the net8.0 runtime for the tests.
+          dotnet-version: 8.0.x
+          global-json-file: global.json
 
       - name: Source hygiene
         run: node scripts/check-source-hygiene.mjs
