@@ -4,7 +4,7 @@
     <PackageId>Koldera.Sdk</PackageId>
     <Version>0.1.0</Version>
     <Authors>Koldera</Authors>
-    <Copyright>Copyright (c) 2026 makulatura78</Copyright>
+    <Copyright>Copyright (c) 2026 Roman Lakusta</Copyright>
     <EnablePackageValidation>true</EnablePackageValidation>
     <Description>.NET SDK for koldera-core: PDF/UA checks and fixes, HTML and structured documents to tagged PDF, web scans.</Description>
     <PackageTags>accessibility;pdf;pdf-ua;wcag;a11y;koldera</PackageTags>
