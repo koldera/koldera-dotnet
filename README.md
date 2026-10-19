@@ -1,6 +1,6 @@
 # Koldera.Sdk
 
-.NET SDK for koldera-core, the commercially licensed, self-hosted service that checks PDFs against
+.NET SDK for koldera-core, the AGPL-3.0-only, self-hosted service that checks PDFs against
 the PDF/UA-1 machine rules, writes fixed copies, renders HTML and structured documents to tagged PDF, and scans web
 pages. `KolderaClient` is async, nullable-annotated, trimming and AOT compatible, and every resource is an interface
 (`IKolderaClient`, `IJobs`, `IPdfJobs`, ...) so you can fake it in your own tests. It targets .NET 8 and .NET 10.
@@ -13,7 +13,8 @@ document is accessible.
 
 ## Use this checkout
 
-You need access to a separately licensed Koldera Core deployment to run jobs. To build and test this SDK before the first package release, install the .NET 10 SDK and .NET 8 runtime, then run:
+You need a running [Koldera Core](https://github.com/koldera/koldera-core) deployment to run jobs. To build and
+test this SDK before the first package release, install the .NET 10 SDK and .NET 8 runtime, then run:
 
 ```sh
 dotnet restore Koldera.Sdk.slnx
@@ -349,4 +350,4 @@ part of the NuGet package.
 
 This SDK is licensed under the [Apache License 2.0](LICENSE).
 
-koldera-core is commercially licensed, self-hosted software; this SDK is Apache-2.0 and talks to it over its HTTP API.
+koldera-core is AGPL-3.0-only, self-hosted software; this SDK is Apache-2.0 and talks to it over its HTTP API.
