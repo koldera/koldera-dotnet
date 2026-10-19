@@ -2,10 +2,8 @@ name: CI
 
 on:
   pull_request:
-    paths-ignore: [CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, ".github/ISSUE_TEMPLATE/**", .github/pull_request_template.md, .github/CODEOWNERS]
   push:
     branches: [main]
-    paths-ignore: [CHANGELOG.md, CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, ".github/ISSUE_TEMPLATE/**", .github/pull_request_template.md, .github/CODEOWNERS]
   # release.yml runs this whole workflow for the tagged commit and publishes only when it passed.
   workflow_call:
 
