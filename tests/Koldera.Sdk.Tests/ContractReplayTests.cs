@@ -20,6 +20,19 @@ public sealed class ContractReplayTests
         await run!(env);
     }
 
+    private static void AssertDeclarationWithheld(Job job)
+    {
+        Assert.Equal(JobStates.Completed, job.State);
+        Assert.True(job.ManualReviewRequired);
+        foreach (var v in new[] { job.Validation, job.FinalValidation })
+        {
+            Assert.Equal(ValidationStatuses.DeclarationWithheld, v?.Status);
+            Assert.NotEqual(ValidationStatuses.Passed, v?.Status);
+            var rule = Assert.Single(v!.FailedRules);
+            Assert.Equal(("ISO 14289-1:2014 5-1", 1), (rule.RuleId, rule.Count));
+        }
+    }
+
     private static MemoryStream PdfBytes() => Env.Stream(GoldenHandler.RequestBytes("upload-put-pdf"));
 
     private static MemoryStream HtmlBytes() => Env.Stream(GoldenHandler.RequestBytes("upload-put-html"));
@@ -215,6 +228,16 @@ public sealed class ContractReplayTests
             Assert.True(job.IsFinished);
             Assert.Equal(RemediationStatuses.Applied, job.RemediationStatus);
             Assert.True(job.ManualReviewRequired);
+        },
+        ["job-completed-fix-declaration-withheld"] = async e =>
+        {
+            e.Handler.Expect("job-completed-fix-declaration-withheld");
+            AssertDeclarationWithheld(await e.Client.Jobs.GetAsync(Guid.Parse("4d2d5a6e-2b1c-4e4a-9d6b-1f3c5e7a9b03")));
+        },
+        ["job-completed-document-declaration-withheld"] = async e =>
+        {
+            e.Handler.Expect("job-completed-document-declaration-withheld");
+            AssertDeclarationWithheld(await e.Client.Jobs.GetAsync(Guid.Parse("4d2d5a6e-2b1c-4e4a-9d6b-1f3c5e7a9b04")));
         },
         ["job-completed-session"] = async e =>
         {
