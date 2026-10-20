@@ -1,6 +1,6 @@
 # Koldera.Sdk
 
-.NET SDK for koldera-core, the commercially licensed, self-hosted service that checks PDFs against
+.NET SDK for koldera-core, the AGPL-3.0-only, self-hosted service that checks PDFs against
 the PDF/UA-1 machine rules, writes fixed copies, renders HTML and structured documents to tagged PDF, and scans web
 pages. `KolderaClient` is async, nullable-annotated, trimming and AOT compatible, and every resource is an interface
 (`IKolderaClient`, `IJobs`, `IPdfJobs`, ...) so you can fake it in your own tests. It targets .NET 8 and .NET 10.
@@ -14,7 +14,22 @@ document is accessible.
 identifier (veraPDF `5-1`, still listed in the failed rules): it was not written because declaring PDF/UA requires a
 human review. It is **not** a pass. Treat a status you do not know as no verdict.
 
-Status: early release (0.1). The API may change before 1.0.
+
+**Status:** source preview for the 0.1 API. No NuGet package or GitHub Release has been published yet. The API may change before 1.0.
+
+## Use this checkout
+
+You need a running [Koldera Core](https://github.com/koldera/koldera-core) deployment to run jobs. To build and
+test this SDK before the first package release, install the .NET 10 SDK and .NET 8 runtime, then run:
+
+```sh
+dotnet restore Koldera.Sdk.slnx
+dotnet build Koldera.Sdk.slnx -c Release
+dotnet test Koldera.Sdk.slnx -c Release
+dotnet pack src/Koldera.Sdk -c Release -o artifacts
+```
+
+The package produced in `artifacts/` can be tested in a local NuGet feed. The install command below applies once `Koldera.Sdk` is published to nuget.org.
 
 ## Install
 
@@ -323,8 +338,8 @@ using var client = new KolderaClient(
 
 The vendored API description in [`contracts/`](contracts) records the koldera-core commit it was taken from
 (`contracts/CORE_VERSION`) and the sdk-contract-kit commit it was synced from (`contracts/KIT_VERSION`), and CI checks
-that the copy matches. Run koldera-core as described in its
-README and deployment guide. A package icon is planned for
+that the copy matches. Core deployment documentation is supplied to licensed customers; for access, write to
+`licensing@koldera-accessibility.dev`. A package icon is planned for
 when a brand asset exists; the package has none yet.
 
 ## Examples
@@ -341,4 +356,4 @@ part of the NuGet package.
 
 This SDK is licensed under the [Apache License 2.0](LICENSE).
 
-koldera-core is commercially licensed, self-hosted software; this SDK is Apache-2.0 and talks to it over its HTTP API.
+koldera-core is AGPL-3.0-only, self-hosted software; this SDK is Apache-2.0 and talks to it over its HTTP API.
